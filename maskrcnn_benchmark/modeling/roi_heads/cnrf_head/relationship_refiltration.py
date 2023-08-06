@@ -12,7 +12,6 @@ def generate_reassignment_labels(global_rel_dists):
                                 49, 18, 2, 9, 3, 15, 27, 35, 48, 39, 41, 6, 4, 1, 47, 19, 33, 37,
                                 43, 25, 21, 42, 12, 14, 38, 11, 46, 50, 24, 29, 5, 13, 7]).to(torch.device("cuda"))
     zeros = torch.zeros(global_pred_score.shape[0], 1).to(torch.device("cuda"))
-    ones = torch.ones(global_pred_score.shape[0], 1).to(torch.device("cuda"))
     zero_padding = torch.zeros((global_pred_score.shape[0], 46)).to(torch.device("cuda"))
     reassignment_score_1 = torch.unsqueeze(global_pred_score[:, 0], dim=1)
     relevant_scores = global_pred_score / reassignment_score_1
