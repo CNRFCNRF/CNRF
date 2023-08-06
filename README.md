@@ -9,7 +9,7 @@ Check [DATASET.md](DATASET.md) for instructions of dataset preprocessing.
 
 ## Pretrained Models
 
-You can download the [pretrained Faster R-CNN](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw) we used in the paper [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), which is the most time consuming step in the whole training process (it took 4 2080ti GPUs). As to the SGG model, you can follow the rest instructions to train your own, which only takes 2 GPUs to train each SGG model. The results should be very close to the reported results given in [METRICS.md](METRICS.md)
+You can download the [pretrained Faster R-CNN](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw) we used in the paper [Unbiased Scene Graph Generation from Biased Training](https://arxiv.org/abs/2002.11949), which is the most time consuming step in the whole training process (it took 4 2080ti GPUs). As to the SGG model, you can follow the rest instructions to train your own, which only takes 2 GPUs to train each SGG model.
 
 After you download the [Faster R-CNN model](https://1drv.ms/u/s!AmRLLNf6bzcir8xemVHbqPBrvjjtQg?e=hAhYCw), please extract all the files to the directory `/home/username/checkpoints/pretrained_faster_rcnn`. To train your own Faster R-CNN model, please follow the next section.
 
