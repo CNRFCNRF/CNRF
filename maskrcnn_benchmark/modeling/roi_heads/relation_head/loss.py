@@ -8,7 +8,7 @@ import numpy.random as npr
 from maskrcnn_benchmark.layers import smooth_l1_loss, Label_Smoothing_Regression
 from maskrcnn_benchmark.modeling.box_coder import BoxCoder
 from maskrcnn_benchmark.modeling.matcher import Matcher
-from maskrcnn_benchmark.modeling.roi_heads.cnrf_head.relationship_refiltration import generate_reassignment_labels
+from maskrcnn_benchmark.modeling.roi_heads.cnrf_head.relationship_refiltration import GenerateReassignmentLabels
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 from maskrcnn_benchmark.modeling.utils import cat
 
@@ -28,6 +28,7 @@ class RelationLossComputation(object):
             attribute_bgfg_ratio,
             use_label_smoothing,
             predicate_proportion,
+            predictor
     ):
         """
         Arguments:
@@ -41,7 +42,8 @@ class RelationLossComputation(object):
         self.attribute_bgfg_ratio = attribute_bgfg_ratio
         self.use_label_smoothing = use_label_smoothing
         self.pred_weight = (1.0 / torch.FloatTensor([0.5, ] + predicate_proportion)).cuda()
-
+        self.predictor = predictor
+        self.generate_reassignment_labels = GenerateReassignmentLabels(self.predictor)
         if self.use_label_smoothing:
             self.criterion_loss = Label_Smoothing_Regression(e=0.01)
         else:
@@ -78,26 +80,31 @@ class RelationLossComputation(object):
         refine_obj_logits = cat(refine_obj_logits, dim=0)
 
         fg_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
-        rel_labels1 = cat(rel_labels, dim=0)
+        rel_labels = cat(rel_labels, dim=0)
 
-        rel_labels1 = torch.unsqueeze(rel_labels1, dim=1)
+        rel_labels1 = torch.unsqueeze(rel_labels, dim=1)
 
         zeros = torch.zeros(rel_labels1.shape[0], 51).cuda()
         onehot_rel_labels = zeros.scatter_(1, rel_labels1, 1)
 
-        reassignment_labels = generate_reassignment_labels(global_rel_dists)
+        reassignment_labels = self.generate_reassignment_labels(global_rel_dists, rel_labels1)
+        if self.predictor == "CausalAnalysisPredictor":
+            global_loss = self.criterion_loss(global_rel_dists, rel_labels.long())
+            cross_loss = self.criterion_loss(cross_rel_dists, reassignment_labels.long())
+            loss_relation = self.criterion_loss(relation_logits, rel_labels.long())
+            loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
+        else:
+            global_rel_dists = self.log_softmax(global_rel_dists)
+            onehot_rel_labels = self.softmax(onehot_rel_labels)
+            # reassignment_labels = self.softmax(reassignment_labels)
+            global_loss = self.kl_loss(global_rel_dists, onehot_rel_labels)
 
-        global_rel_dists = self.log_softmax(global_rel_dists)
-        onehot_rel_labels = self.softmax(onehot_rel_labels)
-        # reassignment_labels = self.softmax(reassignment_labels)
-        global_loss = self.kl_loss(global_rel_dists, onehot_rel_labels)
+            cross_rel_dists = self.log_softmax(cross_rel_dists)
+            cross_loss = self.kl_loss(cross_rel_dists, reassignment_labels)
 
-        cross_rel_dists = self.log_softmax(cross_rel_dists)
-        cross_loss = self.kl_loss(cross_rel_dists, reassignment_labels)
-
-        relation_logits = self.log_softmax(relation_logits)
-        loss_relation = self.kl_loss(relation_logits, onehot_rel_labels)
-        loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
+            relation_logits = self.log_softmax(relation_logits)
+            loss_relation = self.kl_loss(relation_logits, onehot_rel_labels)
+            loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
 
         # The following code is used to calcaulate sampled attribute loss
         if self.attri_on:
@@ -193,6 +200,7 @@ def make_roi_relation_loss_evaluator(cfg):
         cfg.MODEL.ROI_ATTRIBUTE_HEAD.ATTRIBUTE_BGFG_RATIO,
         cfg.MODEL.ROI_RELATION_HEAD.LABEL_SMOOTHING_LOSS,
         cfg.MODEL.ROI_RELATION_HEAD.REL_PROP,
+        cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR,
     )
 
     return loss_evaluator

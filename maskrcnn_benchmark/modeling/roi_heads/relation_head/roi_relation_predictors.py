@@ -17,7 +17,6 @@ from .model_transformer import TransformerContext
 from .utils_relation import layer_init, get_box_info, get_box_pair_info
 from maskrcnn_benchmark.data import get_dataset_statistics
 from maskrcnn_benchmark.modeling.roi_heads.cnrf_head.cross_subnodes import GenerateSubnodes
-from maskrcnn_benchmark.modeling.roi_heads.cnrf_head.relationship_refiltration import generate_reassignment_labels
 
 
 @registry.ROI_RELATION_PREDICTOR.register("TransformerPredictor")
