@@ -407,7 +407,7 @@ def main():
 
     model = train(cfg, args.local_rank, args.distributed, logger)
 
-    if not args.skip_test:
+    if cfg.TEST_FINAL_MODEL:
         test_result = run_test(cfg, model, args.distributed, logger, test=True)
         logger.info("Test Result: %.4f" % test_result)
 
