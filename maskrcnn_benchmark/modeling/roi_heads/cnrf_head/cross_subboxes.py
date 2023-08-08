@@ -86,17 +86,15 @@ def generate_cross_subboxes(proposals, rel_pair_idxs):
 
     interaction_h_boxes = horizontal_boxes_head + longitudinal_boxes_head + longitudinal2_h_boxes_head + longitudinal2_l_boxes_head + \
                           subset_up_boxes_head + subset_down_boxes_head
-    interaction_t_boxes = horizontal_boxes_tail + longitudinal_boxes_tail +longitudinal2_h_boxes_tail+longitudinal2_l_boxes_tail+ \
+    interaction_t_boxes = horizontal_boxes_tail + longitudinal_boxes_tail + longitudinal2_h_boxes_tail + longitudinal2_l_boxes_tail + \
                           subset_up_boxes_tail + subset_down_boxes_tail
 
     non_interaction_h_boxes, non_interaction_t_boxes = generate_non_interaction_boxes(condition_1, condition_2, zeros,
                                                                                       interaction_matrix,
-                                                                                      h_x_1, h_y_1, h_x_2, h_y_2, t_x_1,
-                                                                                      t_y_1,
-                                                                                      t_x_2, t_y_2,
-                                                                                      center_h_x,
-                                                                                      center_h_y, center_t_x,
-                                                                                      center_t_y)
+                                                                                      h_x_1, h_y_1, h_x_2, h_y_2,
+                                                                                      t_x_1, t_y_1, t_x_2, t_y_2,
+                                                                                      center_h_x, center_h_y,
+                                                                                      center_t_x, center_t_y)
     cross_head_boxes = interaction_h_boxes + non_interaction_h_boxes
     cross_tail_boxes = interaction_t_boxes + non_interaction_t_boxes
     cross_head_boxes = cross_head_boxes.split(num_rels, dim=0)
