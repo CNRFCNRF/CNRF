@@ -9,7 +9,7 @@ export test_final_model=True
 
     echo "#####################predcls#######################"
     python -m torch.distributed.launch --master_port 10027 --nproc_per_node=${num_gpu} \
-    tools/relation_train_net.py --config-file configs/${model_config}.yaml \
+    ../tools/relation_train_net.py --config-file ../configs/${model_config}.yaml \
     MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL True \
     MODEL.ROI_RELATION_HEAD.PREDICTOR ${predictor} \
     SOLVER.IMS_PER_BATCH 8  TEST.IMS_PER_BATCH 4 \
