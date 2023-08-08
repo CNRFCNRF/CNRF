@@ -41,19 +41,6 @@ except ImportError:
     raise ImportError('Use APEX for multi-precision via apex.amp')
 
 
-# SEED = 555  # 666
-#
-# torch.cuda.manual_seed(SEED)  # 为当前GPU设置随机种子
-# torch.cuda.manual_seed_all(SEED)  # 为所有GPU设置随机种子
-# torch.manual_seed(SEED)
-# random.seed(SEED)
-# np.random.seed(SEED)
-# #
-# # # torch.backends.cudnn.enabled = True  # 默认值
-# torch.backends.cudnn.benchmark = False  # 默认为False
-# torch.backends.cudnn.deterministic = True  # 默认为False;benchmark为True时,y要排除随机性必须为True
-
-
 def train(cfg, local_rank, distributed, logger):
     debug_print(logger, 'prepare training')
     model = build_detection_model(cfg)

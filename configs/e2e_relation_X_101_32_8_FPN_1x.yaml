@@ -128,3 +128,5 @@ TEST:
     LATER_NMS_PREDICTION_THRES: 0.5
   CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
   CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed  
+
+TEST_FINAL_MODEL: True     # Test the final model
