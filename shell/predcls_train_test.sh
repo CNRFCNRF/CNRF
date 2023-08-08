@@ -7,7 +7,7 @@ export pretrained_model_dir="/home/user/wight/pretrained_faster_rcnn"
 export output_dir="/home/user/outputs/${predictor}/predcls"
 export test_final_model=True
 
-    echo "#####################predcls#######################"
+    echo "#####################  ${predictor}--predcls  #####################"
     python -m torch.distributed.launch --master_port 10027 --nproc_per_node=${num_gpu} \
     ../tools/relation_train_net.py --config-file ../configs/${model_config}.yaml \
     MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL True \
