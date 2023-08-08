@@ -4,7 +4,7 @@ export model_config="e2e_relation_X_101_32_8_FPN_1x"
 export predictor="MotifPredictor"
 export glove_dir="/home/user/Glove"
 export pretrained_model_dir="/home/user/wight/pretrained_faster_rcnn"
-export output_dir="/home/user/outputs/${predictor}/predcls"
+export output_dir="/home/user/outputs/${predictor}/predcls-$(date "+%m-%d-%H:%M:%S")"
 export test_final_model=True
 
     echo "#####################  ${predictor}--predcls  #####################"
