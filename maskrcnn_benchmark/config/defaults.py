@@ -599,3 +599,6 @@ _C.DTYPE = "float32"
 
 # Enable verbosity in apex.amp
 _C.AMP_VERBOSE = False
+
+# Test the final model
+_C.TEST_FINAL_MODEL = True
