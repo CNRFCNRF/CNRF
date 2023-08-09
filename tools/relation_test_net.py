@@ -13,7 +13,7 @@ from maskrcnn_benchmark.engine.inference import inference
 from maskrcnn_benchmark.modeling.detector import build_detection_model
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
-from maskrcnn_benchmark.utils.comm import synchronize, get_rank
+from maskrcnn_benchmark.utils.comm import synchronize, get_rank, all_gather
 from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir
 
@@ -55,9 +55,10 @@ def main():
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
-
-    save_dir = ""
-    logger = setup_logger("maskrcnn_benchmark", save_dir, get_rank())
+    output_dir = cfg.OUTPUT_DIR
+    if output_dir:
+        mkdir(output_dir)
+    logger = setup_logger("maskrcnn_benchmark", output_dir, get_rank())
     logger.info("Using {} GPUs".format(num_gpus))
     logger.info(cfg)
 
@@ -71,7 +72,6 @@ def main():
     use_mixed_precision = cfg.DTYPE == 'float16'
     amp_handle = amp.init(enabled=use_mixed_precision, verbose=cfg.AMP_VERBOSE)
 
-    output_dir = cfg.OUTPUT_DIR
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
     _ = checkpointer.load(cfg.MODEL.WEIGHT)
 
@@ -81,9 +81,9 @@ def main():
     if cfg.MODEL.KEYPOINT_ON:
         iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
-        iou_types = iou_types + ("relations", )
+        iou_types = iou_types + ("relations",)
     if cfg.MODEL.ATTRIBUTE_ON:
-        iou_types = iou_types + ("attributes", )
+        iou_types = iou_types + ("attributes",)
     output_folders = [None] * len(cfg.DATASETS.TEST)
 
     dataset_names = cfg.DATASETS.TEST
@@ -96,18 +96,20 @@ def main():
         elif cfg.DATASETS.TO_TEST == 'val':
             dataset_names = cfg.DATASETS.VAL
 
-
     if cfg.OUTPUT_DIR:
         for idx, dataset_name in enumerate(dataset_names):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
             mkdir(output_folder)
             output_folders[idx] = output_folder
-    data_loaders_val = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed, dataset_to_test=cfg.DATASETS.TO_TEST)
+    data_loaders_val = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed,
+                                        dataset_to_test=cfg.DATASETS.TO_TEST)
+    test_result = []
     for output_folder, dataset_name, data_loader_val in zip(output_folders, dataset_names, data_loaders_val):
-        inference(
+        dataset_result = inference(
             cfg,
             model,
             data_loader_val,
+            test=True,
             dataset_name=dataset_name,
             iou_types=iou_types,
             box_only=False if cfg.MODEL.RETINANET_ON else cfg.MODEL.RPN_ONLY,
@@ -117,7 +119,16 @@ def main():
             output_folder=output_folder,
         )
         synchronize()
-
+        test_result.append(dataset_result)
+        # support for multi gpu distributed testing
+        gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+        gathered_result = [t.view(-1) for t in gathered_result]
+        gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
+        valid_result = gathered_result[gathered_result >= 0]
+        test_result = float(valid_result.mean())
+        del gathered_result, valid_result
+        torch.cuda.empty_cache()
+        logger.info("Test Result: %.4f" % test_result)
 
 if __name__ == "__main__":
     main()
