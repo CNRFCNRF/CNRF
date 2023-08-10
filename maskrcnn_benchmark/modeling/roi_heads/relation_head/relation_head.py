@@ -39,6 +39,7 @@ class ROIRelationHead(torch.nn.Module):
 
         # parameters
         self.use_union_box = self.cfg.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
+        self.predictor_type = self.cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR,
 
     def forward(self, features, proposals, targets=None, logger=None):
         """
@@ -67,11 +68,11 @@ class ROIRelationHead(torch.nn.Module):
             rel_labels, rel_binarys = None, None
             rel_pair_idxs = self.samp_processor.prepare_test_pairs(features[0].device, proposals)
 
-        # use box_head to extract features that will be fed to the later predictor processing
-        cross_head_boxes, cross_tail_boxes = generate_cross_subboxes(proposals, rel_pair_idxs)
-        union = 0
+        cross_head_boxes, cross_tail_boxes, interaction_matrix = generate_cross_subboxes(proposals, rel_pair_idxs)
+
+        is_cross_box = 0
         roi_features, cross_head_features, cross_tail_features = self.box_feature_extractor(features, proposals, cross_head_boxes,
-                                                                                cross_tail_boxes, union)
+                                                                                cross_tail_boxes, is_cross_box)
         if self.cfg.MODEL.ATTRIBUTE_ON:
             att_features = self.att_feature_extractor(features, proposals)
             roi_features = torch.cat((roi_features, att_features), dim=-1)
@@ -89,7 +90,7 @@ class ROIRelationHead(torch.nn.Module):
             rel_binarys,
             roi_features, union_features,
             cross_head_features,
-            cross_tail_features, cross_head_boxes, cross_tail_boxes, logger)
+            cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix, logger)
         # for test
         if not self.training:
             result = self.post_processor((relation_logits, refine_logits), rel_pair_idxs, proposals)
@@ -100,7 +101,7 @@ class ROIRelationHead(torch.nn.Module):
             rel_labels,
             relation_logits,
             refine_logits,
-            cross_rel_dists, global_rel_dists)
+            cross_rel_dists, global_rel_dists, interaction_matrix)
 
         if self.cfg.MODEL.ATTRIBUTE_ON and isinstance(loss_refine, (list, tuple)):
             output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine[0], loss_refine_att=loss_refine[1])

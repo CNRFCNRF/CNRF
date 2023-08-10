@@ -86,7 +86,7 @@ class TransformerPredictor(nn.Module):
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features,
                 cross_head_features,
-                cross_tail_features, cross_head_boxes, cross_tail_boxes, logger=None):
+                cross_tail_features, cross_head_boxes, cross_tail_boxes, _, logger=None):
         """
         Returns:
             obj_dists (list[Tensor]): logits of object label distribution
@@ -176,74 +176,6 @@ class TransformerPredictor(nn.Module):
             return obj_dists, rel_dists, add_losses, cross_rel_dists, global_rel_dists
 
 
-@registry.ROI_RELATION_PREDICTOR.register("IMPPredictor")
-class IMPPredictor(nn.Module):
-    def __init__(self, config, in_channels):
-        super(IMPPredictor, self).__init__()
-        self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
-        self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
-        self.use_bias = False
-
-        assert in_channels is not None
-
-        self.context_layer = IMPContext(config, self.num_obj_cls, self.num_rel_cls, in_channels)
-
-        # post decoding
-        self.hidden_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
-        self.pooling_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
-
-        if self.pooling_dim != config.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM:
-            self.union_single_not_match = True
-            self.up_dim = nn.Linear(config.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM, self.pooling_dim)
-            layer_init(self.up_dim, xavier=True)
-        else:
-            self.union_single_not_match = False
-
-        # freq 
-        if self.use_bias:
-            statistics = get_dataset_statistics(config)
-            self.freq_bias = FrequencyBias(config, statistics)
-
-    def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None):
-        """
-        Returns:
-            obj_dists (list[Tensor]): logits of object label distribution
-            rel_dists (list[Tensor])
-            rel_pair_idxs (list[Tensor]): (num_rel, 2) index of subject and object
-            union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
-        """
-
-        if self.union_single_not_match:
-            union_features = self.up_dim(union_features)
-
-        # encode context infomation
-        obj_dists, rel_dists = self.context_layer(roi_features, proposals, union_features, rel_pair_idxs, logger)
-
-        num_objs = [len(b) for b in proposals]
-        num_rels = [r.shape[0] for r in rel_pair_idxs]
-        assert len(num_rels) == len(num_objs)
-
-        if self.use_bias:
-            obj_preds = obj_dists.max(-1)[1]
-            obj_preds = obj_preds.split(num_objs, dim=0)
-
-            pair_preds = []
-            for pair_idx, obj_pred in zip(rel_pair_idxs, obj_preds):
-                pair_preds.append(torch.stack((obj_pred[pair_idx[:, 0]], obj_pred[pair_idx[:, 1]]), dim=1))
-            pair_pred = cat(pair_preds, dim=0)
-
-            rel_dists = rel_dists + self.freq_bias.index_with_labels(pair_pred.long())
-
-        obj_dists = obj_dists.split(num_objs, dim=0)
-        rel_dists = rel_dists.split(num_rels, dim=0)
-
-        # we use obj_preds instead of pred from obj_dists
-        # because in decoder_rnn, preds has been through a nms stage
-        add_losses = {}
-
-        return obj_dists, rel_dists, add_losses
-
-
 @registry.ROI_RELATION_PREDICTOR.register("MotifPredictor")
 class MotifPredictor(nn.Module):
     def __init__(self, config, in_channels):
@@ -308,7 +240,7 @@ class MotifPredictor(nn.Module):
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features,
                 cross_head_features,
-                cross_tail_features, cross_head_boxes, cross_tail_boxes, logger=None):
+                cross_tail_features, cross_head_boxes, cross_tail_boxes, _, logger=None):
         """
         Returns:
             obj_dists (list[Tensor]): logits of object label distribution
@@ -465,7 +397,7 @@ class VCTreePredictor(nn.Module):
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features,
                 cross_head_features,
-                cross_tail_features, cross_head_boxes, cross_tail_boxes, logger=None):
+                cross_tail_features, cross_head_boxes, cross_tail_boxes, _, logger=None):
         """
         Returns:
             obj_dists (list[Tensor]): logits of object label distribution
@@ -496,7 +428,6 @@ class VCTreePredictor(nn.Module):
                                                                                 cross_tail_features,
                                                                                 cross_head_boxes, cross_tail_boxes,
                                                                                 obj_embed, rel_pair_idxs)
-        print('11111')
         cross_head_features = self.change_dim(cross_head_features)
         cross_tail_features = self.change_dim(cross_tail_features)
 
@@ -658,6 +589,7 @@ class CausalAnalysisPredictor(nn.Module):
 
     def pair_feature_generate(self, roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
                               cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes,
+                              interaction_matrix,
                               ctx_average=False):
         # encode context infomation
         obj_dists, obj_preds, edge_ctx, obj_embed, binary_preds = self.context_layer(roi_features, proposals,
@@ -672,6 +604,25 @@ class CausalAnalysisPredictor(nn.Module):
                                                                                 obj_embed, rel_pair_idxs)
         cross_head_features = self.change_dim(cross_head_features).split(num_rels, dim=0)
         cross_tail_features = self.change_dim(cross_tail_features).split(num_rels, dim=0)
+
+        interaction_id_matrix = []
+        full_id_matrix = []
+        interaction_head_features = []
+        interaction_tail_features = []
+        for matrix, head, tail in zip(interaction_matrix, cross_head_features, cross_tail_features):
+            _, ids = torch.sort(matrix[:, 0], descending=True, dim=0)
+            interaction_num = torch.nonzero(matrix == 1).shape[0]
+            interaction_id = ids[:interaction_num]
+            head = head[interaction_id]
+            tail = tail[interaction_id]
+            # the object id with the interaction
+            interaction_id_matrix.append(interaction_id)
+            full_id_matrix.append(ids)
+
+            interaction_head_features.append(head)
+            interaction_tail_features.append(tail)
+        interaction_num_rels = [len(b) for b in interaction_id_matrix]
+        union_splits = union_features.split(num_rels, dim=0)
 
         # post decode
         edge_rep = self.post_emb(edge_ctx)
@@ -690,18 +641,26 @@ class CausalAnalysisPredictor(nn.Module):
         pair_preds = []
         cross_preds = []
         global_preds = []
-        for pair_idx, head_rep, tail_rep, obj_pred, obj_box, obj_prob, head_feature, tail_feature in zip(
-                rel_pair_idxs, head_reps, tail_reps, obj_preds, obj_boxs, obj_prob_list, cross_head_features,
-                cross_tail_features):
-
+        for pair_idx, head_rep, tail_rep, obj_pred, obj_box, obj_prob, head_feature, tail_feature, interaction_id, \
+            full_id, union_split in zip(rel_pair_idxs, head_reps, tail_reps, obj_preds, obj_boxs, obj_prob_list,
+                                        interaction_head_features, interaction_tail_features,
+                                        interaction_id_matrix, full_id_matrix, union_splits):
+            zeros = torch.zeros((full_id.shape[0] - interaction_id.shape[0]), 512).to(torch.device('cuda'))
+            head = torch.cat((head_feature, zeros), dim=0)
+            tail = torch.cat((tail_feature, zeros), dim=0)
+            _, original_id = torch.sort(full_id, dim=0)
+            head = head[original_id]
+            tail = tail[original_id]
             if self.use_vtranse:
                 ctx_reps.append(head_rep[pair_idx[:, 0]] - tail_rep[pair_idx[:, 1]])
             else:
-                ctx_reps.append(torch.cat((head_rep[pair_idx[:, 0]] * (head_feature + 1),
-                                           tail_rep[pair_idx[:, 1]] * (tail_feature + 1)), dim=-1))
-            head_rep = head_rep[pair_idx[:, 0]]
-            tail_rep = tail_rep[pair_idx[:, 1]]
+                ctx_reps.append(torch.cat((head_rep[pair_idx[:, 0]] * (head + 1),
+                                           tail_rep[pair_idx[:, 1]] * (tail + 1)), dim=-1))
+            head_rep = head_rep[pair_idx[:, 0]][interaction_id]
+            tail_rep = tail_rep[pair_idx[:, 1]][interaction_id]
+            union_split = union_split[interaction_id]
             global_pred = torch.cat((head_rep, tail_rep), dim=-1)
+            global_pred = global_pred * union_split
             cross_pred = torch.cat((head_feature, tail_feature), dim=-1)
             global_preds.append(global_pred)
             cross_preds.append(cross_pred)
@@ -724,7 +683,8 @@ class CausalAnalysisPredictor(nn.Module):
         return post_ctx_rep, pair_pred, pair_bbox, pair_obj_probs, binary_preds, obj_dist_prob, edge_rep, obj_dist_list, cross_preds, global_preds
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features,
-                cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, logger=None):
+                cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix,
+                logger=None):
         """
         Returns:
             obj_dists (list[Tensor]): logits of object label distribution
@@ -741,16 +701,16 @@ class CausalAnalysisPredictor(nn.Module):
         post_ctx_rep, pair_pred, pair_bbox, pair_obj_probs, binary_preds, obj_dist_prob, edge_rep, obj_dist_list, cross_preds, global_preds = \
             self.pair_feature_generate(
                 roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
-                cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes,
+                cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix,
                 ctx_average=False)
 
         if (not self.training) and self.effect_analysis:
             with torch.no_grad():
                 avg_post_ctx_rep, _, _, avg_pair_obj_prob, _, _, _, _, cross_preds, global_preds = self.pair_feature_generate(
                     roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
-                    cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes,
+                    cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix,
                     ctx_average=True)
-        global_rel_dists = self.ctx_compress(global_preds * union_features)
+        global_rel_dists = self.ctx_compress(global_preds)
         cross_rel_dists = self.ctx_compress(cross_preds)
 
         if self.separate_spatial:

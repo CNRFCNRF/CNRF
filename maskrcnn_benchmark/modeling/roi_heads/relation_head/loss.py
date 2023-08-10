@@ -53,7 +53,7 @@ class RelationLossComputation(object):
         self.softmax = nn.Softmax(dim=1)
 
     def __call__(self, proposals, rel_labels, relation_logits, refine_logits,
-                 cross_rel_dists, global_rel_dists):
+                 cross_rel_dists, global_rel_dists, interaction_matrix):
         """
         Computes the loss for relation triplet.
         This requires that the subsample method has been called beforehand.
@@ -80,18 +80,37 @@ class RelationLossComputation(object):
         refine_obj_logits = cat(refine_obj_logits, dim=0)
 
         fg_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
-        rel_labels = cat(rel_labels, dim=0)
+        cat_rel_labels = cat(rel_labels, dim=0)
 
-        rel_labels1 = torch.unsqueeze(rel_labels, dim=1)
+        rel_labels1 = torch.unsqueeze(cat_rel_labels, dim=1)
 
         zeros = torch.zeros(rel_labels1.shape[0], 51).cuda()
         onehot_rel_labels = zeros.scatter_(1, rel_labels1, 1)
 
         reassignment_labels = self.generate_reassignment_labels(global_rel_dists, rel_labels1)
         if self.predictor == "CausalAnalysisPredictor":
-            global_loss = self.criterion_loss(global_rel_dists, rel_labels.long())
-            cross_loss = self.criterion_loss(cross_rel_dists, reassignment_labels.long())
-            loss_relation = self.criterion_loss(relation_logits, rel_labels.long())
+            num_rels = [r.shape[0] for r in rel_labels]
+            reassignment_labels = reassignment_labels.split(num_rels, dim=0)
+            interaction_id_matrix = []
+            for matrix in interaction_matrix:
+                _, ids = torch.sort(matrix[:, 0], descending=True, dim=0)
+                interaction_num = torch.nonzero(matrix == 1).shape[0]
+                interaction_id = ids[:interaction_num]
+                # the object id with the interaction
+                interaction_id_matrix.append(interaction_id)
+            interaction_gt_label = []
+            interaction_reassignment_labels = []
+            for label,reassignment_label, id in zip(rel_labels, reassignment_labels, interaction_id_matrix):
+                label = label[id]
+                reassignment_label = reassignment_label[id]
+                interaction_gt_label.append(label)
+                interaction_reassignment_labels.append(reassignment_label)
+            interaction_gt_label = torch.cat(interaction_gt_label, dim=0)
+            interaction_reassignment_labels = torch.cat(interaction_reassignment_labels, dim=0)
+
+            global_loss = self.criterion_loss(global_rel_dists, interaction_gt_label.long())
+            cross_loss = self.criterion_loss(cross_rel_dists, interaction_reassignment_labels.long())
+            loss_relation = self.criterion_loss(relation_logits, cat_rel_labels.long())
             loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
         else:
             global_rel_dists = self.log_softmax(global_rel_dists)
