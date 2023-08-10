@@ -5,7 +5,6 @@ export predictor="MotifPredictor"
 export train_batch=8
 export test_batch=4
 export glove_dir="/home/user/Glove"
-export data_dir="/home/user/dataset/vg"
 export pretrained_model_dir="/home/user/wight/pretrained_faster_rcnn"
 export output_dir="/home/user/outputs/${predictor}/sgdet-$(date "+%m-%d-%H:%M:%S")"
 export test_final_model=True
@@ -19,7 +18,6 @@ export test_final_model=True
     DTYPE float16 SOLVER.MAX_ITER 50000 SOLVER.VAL_PERIOD 2000 \
     SOLVER.CHECKPOINT_PERIOD 2000 \
     GLOVE_DIR ${glove_dir} \
-    DATASETS.DATA_DIR ${data_dir} \
     MODEL.PRETRAINED_DETECTOR_CKPT ${pretrained_model_dir}/model_final.pth \
     OUTPUT_DIR ${output_dir} \
     TEST_FINAL_MODEL ${test_final_model}

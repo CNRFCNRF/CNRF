@@ -8,7 +8,6 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 import random
-from maskrcnn_benchmark.config import cfg
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
@@ -38,15 +37,14 @@ class VGDataset(torch.utils.data.Dataset):
         # for debug
         # num_im = 10000
         # num_val_im = 4
-        self.cfg = cfg
 
         assert split in {'train', 'val', 'test'}
         self.flip_aug = flip_aug
         self.split = split
-        self.img_dir = f"{self.cfg.DATA_DIR}/VG_100k"
-        self.dict_file = f"{self.cfg.DATA_DIR}/VG-SGG-dicts-with-attri.json"
-        self.roidb_file = f"{self.cfg.DATA_DIR}/VG-SGG-with-attri.h5"
-        self.image_file = f"{self.cfg.DATA_DIR}/image_data.json"
+        self.img_dir = img_dir
+        self.dict_file = dict_file
+        self.roidb_file = roidb_file
+        self.image_file = image_file
         self.filter_non_overlap = filter_non_overlap and self.split == 'train'
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.transforms = transforms
