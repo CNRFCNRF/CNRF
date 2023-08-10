@@ -73,6 +73,7 @@ _C.INPUT.VERTICAL_FLIP_PROB_TRAIN = 0.0
 _C.DATASETS = CN()
 # List of the dataset names for training, as present in paths_catalog.py
 _C.DATASETS.TRAIN = ()
+_C.DATASETS.DATA_DIR = ''
 # List of the dataset names for val, as present in paths_catalog.py
 # Note that except dataset names, all remaining val configs reuse those of test
 _C.DATASETS.VAL = ()

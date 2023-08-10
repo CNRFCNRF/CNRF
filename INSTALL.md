@@ -20,9 +20,7 @@ conda create --name cnrf
 conda activate cnrf
 
 # this installs the right pip and dependencies for the fresh python
-conda install ipython
-conda install scipy
-conda install h5py
+conda install ipython h5py scipy
 
 # scene_graph_benchmark and coco api dependencies
 pip install ninja yacs cython matplotlib tqdm opencv-python overrides
