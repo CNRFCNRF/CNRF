@@ -621,7 +621,6 @@ class CausalAnalysisPredictor(nn.Module):
 
             interaction_head_features.append(head)
             interaction_tail_features.append(tail)
-        interaction_num_rels = [len(b) for b in interaction_id_matrix]
         union_splits = union_features.split(num_rels, dim=0)
 
         # post decode
@@ -657,10 +656,10 @@ class CausalAnalysisPredictor(nn.Module):
             else:
                 ctx_reps.append(torch.cat((head_rep[pair_idx[:, 0]] * (head + 1),
                                            tail_rep[pair_idx[:, 1]] * (tail + 1)), dim=-1))
-            head_rep = head_rep[pair_idx[:, 0]][interaction_id]
-            tail_rep = tail_rep[pair_idx[:, 1]][interaction_id]
+            head_global_rep = head_rep[pair_idx[:, 0]][interaction_id]
+            tail_global_rep = tail_rep[pair_idx[:, 1]][interaction_id]
             union_split = union_split[interaction_id]
-            global_pred = torch.cat((head_rep, tail_rep), dim=-1)
+            global_pred = torch.cat((head_global_rep, tail_global_rep), dim=-1)
             cross_pred = torch.cat((head_feature, tail_feature), dim=-1)
             global_preds.append(global_pred)
             cross_preds.append(cross_pred)
@@ -713,7 +712,7 @@ class CausalAnalysisPredictor(nn.Module):
                     roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
                     cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix,
                     ctx_average=True)
-        global_rel_dists = global_preds
+        global_rel_dists = self.ctx_compress(global_preds)
         cross_rel_dists = self.ctx_compress(cross_preds)
 
         if self.separate_spatial:

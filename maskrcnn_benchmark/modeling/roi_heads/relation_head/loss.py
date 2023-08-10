@@ -87,10 +87,7 @@ class RelationLossComputation(object):
         zeros = torch.zeros(rel_labels1.shape[0], 51).cuda()
         onehot_rel_labels = zeros.scatter_(1, rel_labels1, 1)
 
-        reassignment_labels = self.generate_reassignment_labels(global_rel_dists, rel_labels1)
         if self.predictor == "CausalAnalysisPredictor":
-            num_rels = [r.shape[0] for r in rel_labels]
-            reassignment_labels = reassignment_labels.split(num_rels, dim=0)
             interaction_id_matrix = []
             for matrix in interaction_matrix:
                 _, ids = torch.sort(matrix[:, 0], descending=True, dim=0)
@@ -99,20 +96,19 @@ class RelationLossComputation(object):
                 # the object id with the interaction
                 interaction_id_matrix.append(interaction_id)
             interaction_gt_label = []
-            interaction_reassignment_labels = []
-            for label,reassignment_label, id in zip(rel_labels, reassignment_labels, interaction_id_matrix):
+            for label, id in zip(rel_labels, interaction_id_matrix):
                 label = label[id]
-                reassignment_label = reassignment_label[id]
                 interaction_gt_label.append(label)
-                interaction_reassignment_labels.append(reassignment_label)
+
             interaction_gt_label = torch.cat(interaction_gt_label, dim=0)
-            interaction_reassignment_labels = torch.cat(interaction_reassignment_labels, dim=0)
+            reassignment_labels = self.generate_reassignment_labels(global_rel_dists, interaction_gt_label.unsqueeze(dim=1))
 
             global_loss = self.criterion_loss(global_rel_dists, interaction_gt_label.long())
-            cross_loss = self.criterion_loss(cross_rel_dists, interaction_reassignment_labels.long())
+            cross_loss = self.criterion_loss(cross_rel_dists, reassignment_labels.long())
             loss_relation = self.criterion_loss(relation_logits, cat_rel_labels.long())
             loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
         else:
+            reassignment_labels = self.generate_reassignment_labels(global_rel_dists, rel_labels1)
             global_rel_dists = self.log_softmax(global_rel_dists)
             onehot_rel_labels = self.softmax(onehot_rel_labels)
             # reassignment_labels = self.softmax(reassignment_labels)
