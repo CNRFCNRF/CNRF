@@ -53,7 +53,7 @@ class ROIBoxHead(torch.nn.Module):
             if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
                 # use ground truth box as proposals
                 proposals = [target.copy_with_fields(["labels", "attributes"]) for target in targets]
-                x, _, _ = self.feature_extractor(features, proposals, head=None, tail=None)
+                x, _, _ = self.feature_extractor(features, proposals, head_boxes=None, tail_boxes=None)
                 if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
                     # mode==predcls
                     # return gt proposals and no loss even during training
@@ -68,10 +68,7 @@ class ROIBoxHead(torch.nn.Module):
                 # mode==sgdet
                 if self.training or not self.cfg.TEST.CUSTUM_EVAL:
                     proposals = self.samp_processor.assign_label_to_proposals(proposals, targets)
-                head = []
-                tail = []
-                union = 1
-                x = self.feature_extractor(features, proposals, head, tail, union)
+                x, _, _ = self.feature_extractor(features, proposals, head_boxes=None, tail_boxes=None)
                 class_logits, box_regression = self.predictor(x)
                 proposals = add_predict_logits(proposals, class_logits)
                 # post process:
