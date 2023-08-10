@@ -8,12 +8,14 @@ from .inference import make_roi_box_post_processor
 from .loss import make_roi_box_loss_evaluator
 from .sampling import make_roi_box_samp_processor
 
+
 def add_predict_logits(proposals, class_logits):
     slice_idxs = [0]
     for i in range(len(proposals)):
-        slice_idxs.append(len(proposals[i])+slice_idxs[-1])
-        proposals[i].add_field("predict_logits", class_logits[slice_idxs[i]:slice_idxs[i+1]])
+        slice_idxs.append(len(proposals[i]) + slice_idxs[-1])
+        proposals[i].add_field("predict_logits", class_logits[slice_idxs[i]:slice_idxs[i + 1]])
     return proposals
+
 
 class ROIBoxHead(torch.nn.Module):
     """
@@ -51,10 +53,7 @@ class ROIBoxHead(torch.nn.Module):
             if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
                 # use ground truth box as proposals
                 proposals = [target.copy_with_fields(["labels", "attributes"]) for target in targets]
-                head = []
-                tail = []
-                union = 1
-                x = self.feature_extractor(features, proposals, head, tail, union)
+                x, _, _ = self.feature_extractor(features, proposals, head=None, tail=None)
                 if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
                     # mode==predcls
                     # return gt proposals and no loss even during training
@@ -95,7 +94,7 @@ class ROIBoxHead(torch.nn.Module):
         x = self.feature_extractor(features, proposals)
         # final classifier that converts the features into predictions
         class_logits, box_regression = self.predictor(x)
-        
+
         if not self.training:
             x, result = self.post_processor((x, class_logits, box_regression), proposals)
 
@@ -111,6 +110,7 @@ class ROIBoxHead(torch.nn.Module):
         loss_classifier, loss_box_reg = self.loss_evaluator([class_logits], [box_regression], proposals)
 
         return x, proposals, dict(loss_classifier=loss_classifier, loss_box_reg=loss_box_reg)
+
 
 def build_roi_box_head(cfg, in_channels):
     """

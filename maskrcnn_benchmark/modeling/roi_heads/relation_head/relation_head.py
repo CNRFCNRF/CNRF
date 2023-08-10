@@ -70,9 +70,8 @@ class ROIRelationHead(torch.nn.Module):
 
         cross_head_boxes, cross_tail_boxes, interaction_matrix = generate_cross_subboxes(proposals, rel_pair_idxs)
 
-        is_cross_box = 0
         roi_features, cross_head_features, cross_tail_features = self.box_feature_extractor(features, proposals, cross_head_boxes,
-                                                                                cross_tail_boxes, is_cross_box)
+                                                                                cross_tail_boxes)
         if self.cfg.MODEL.ATTRIBUTE_ON:
             att_features = self.att_feature_extractor(features, proposals)
             roi_features = torch.cat((roi_features, att_features), dim=-1)

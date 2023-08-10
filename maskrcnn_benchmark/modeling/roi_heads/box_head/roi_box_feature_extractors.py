@@ -80,13 +80,8 @@ class FPN2MLPFeatureExtractor(nn.Module):
         self.resize_channels = input_size
         self.out_channels = out_dim
 
-    def forward(self, x, proposals, head_boxes, tail_boxes, union):
-        if union == 1:
-            x = self.pooler(x, proposals, head_boxes, tail_boxes, union)
-            x = self.feature(x)
-            return x
-        else:
-            pro_result, head_result, tail_result = self.pooler(x, proposals, head_boxes, tail_boxes, union)
+    def forward(self, x, proposals, head_boxes, tail_boxes):
+            pro_result, head_result, tail_result = self.pooler(x, proposals, head_boxes, tail_boxes)
             pro_result = self.feature(pro_result)
             head_result = self.feature(head_result)
             tail_result = self.feature(tail_result)
