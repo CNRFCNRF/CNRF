@@ -135,8 +135,12 @@ class Pooler(nn.Module):
         pro_num = 0
         notpro_num = 1
         pro_result = self.feature(x, boxes, pro_rois, pro_num)
-        up_result = self.feature(x, head_boxes, up_rois, notpro_num)
-        down_result = self.feature(x, tail_boxes, down_rois, notpro_num)
+        if head_boxes != None:
+            up_result = self.feature(x, head_boxes, up_rois, notpro_num)
+            down_result = self.feature(x, tail_boxes, down_rois, notpro_num)
+        else:
+            up_result = None
+            down_result = None
         return pro_result, up_result, down_result
 
     def feature(self, x, boxes, rois, pro):
