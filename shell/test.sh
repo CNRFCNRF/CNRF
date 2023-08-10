@@ -3,7 +3,7 @@ export num_gpu=1
 export model_config="e2e_relation_X_101_32_8_FPN_1x"
 export predictor="MotifPredictor"
 export test_batch=1
-export data_dir="/home/user/Dataset"
+export data_dir="/home/user/dataset/vg"
 export model_dir="/home/user/test/wight"
 export output_dir="/home/user/outputs/test/${predictor}/predcls-$(date "+%m-%d-%H:%M:%S")"
 
