@@ -641,6 +641,7 @@ class CausalAnalysisPredictor(nn.Module):
         pair_preds = []
         cross_preds = []
         global_preds = []
+        union_splits_feature = []
         for pair_idx, head_rep, tail_rep, obj_pred, obj_box, obj_prob, head_feature, tail_feature, interaction_id, \
             full_id, union_split in zip(rel_pair_idxs, head_reps, tail_reps, obj_preds, obj_boxs, obj_prob_list,
                                         interaction_head_features, interaction_tail_features,
@@ -660,10 +661,10 @@ class CausalAnalysisPredictor(nn.Module):
             tail_rep = tail_rep[pair_idx[:, 1]][interaction_id]
             union_split = union_split[interaction_id]
             global_pred = torch.cat((head_rep, tail_rep), dim=-1)
-            global_pred = global_pred * union_split
             cross_pred = torch.cat((head_feature, tail_feature), dim=-1)
             global_preds.append(global_pred)
             cross_preds.append(cross_pred)
+            union_splits_feature.append(union_split)
             pair_preds.append(torch.stack((obj_pred[pair_idx[:, 0]], obj_pred[pair_idx[:, 1]]), dim=1))
             pair_obj_probs.append(torch.stack((obj_prob[pair_idx[:, 0]], obj_prob[pair_idx[:, 1]]), dim=2))
             pair_bboxs_info.append(get_box_pair_info(obj_box[pair_idx[:, 0]], obj_box[pair_idx[:, 1]]))
@@ -674,12 +675,14 @@ class CausalAnalysisPredictor(nn.Module):
 
         cross_preds = cat(cross_preds, dim=0)
         global_preds = cat(global_preds, dim=0)
+        union_splits_feature = cat(union_splits_feature, dim=0)
         if self.use_vtranse:
             post_ctx_rep = ctx_rep
         else:
             post_ctx_rep = self.post_cat(ctx_rep)
             cross_preds = self.post_cat(cross_preds)
             global_preds = self.post_cat(global_preds)
+        global_preds = global_preds * union_splits_feature
         return post_ctx_rep, pair_pred, pair_bbox, pair_obj_probs, binary_preds, obj_dist_prob, edge_rep, obj_dist_list, cross_preds, global_preds
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features,
@@ -710,7 +713,7 @@ class CausalAnalysisPredictor(nn.Module):
                     roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
                     cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix,
                     ctx_average=True)
-        global_rel_dists = self.ctx_compress(global_preds)
+        global_rel_dists = global_preds
         cross_rel_dists = self.ctx_compress(cross_preds)
 
         if self.separate_spatial:
