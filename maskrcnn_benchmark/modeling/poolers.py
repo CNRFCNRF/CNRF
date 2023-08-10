@@ -97,13 +97,17 @@ class Pooler(nn.Module):
                                                use_relu=True)
 
     def convert_to_roi_format(self, boxes, head_boxes, tail_boxes):
-            concat_boxes = cat([b.bbox for b in boxes], dim=0)
-            pro_rois = self.rois_feat(boxes, concat_boxes)
+        concat_boxes = cat([b.bbox for b in boxes], dim=0)
+        pro_rois = self.rois_feat(boxes, concat_boxes)
+        if head_boxes != None:
             concat_up_boxes = cat([b for b in head_boxes], dim=0)
             concat_down_boxes = cat([b for b in tail_boxes], dim=0)
             up_rois = self.rois_feat(head_boxes, concat_up_boxes)
             down_rois = self.rois_feat(tail_boxes, concat_down_boxes)
-            return pro_rois, up_rois, down_rois
+        else:
+            up_rois = None
+            down_rois = None
+        return pro_rois, up_rois, down_rois
 
     def rois_feat(self, boxes, concat_boxes):
         device, dtype = concat_boxes.device, concat_boxes.dtype
