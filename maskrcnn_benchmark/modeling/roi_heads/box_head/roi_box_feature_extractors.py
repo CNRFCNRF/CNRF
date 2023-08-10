@@ -81,11 +81,15 @@ class FPN2MLPFeatureExtractor(nn.Module):
         self.out_channels = out_dim
 
     def forward(self, x, proposals, head_boxes, tail_boxes):
-            pro_result, head_result, tail_result = self.pooler(x, proposals, head_boxes, tail_boxes)
-            pro_result = self.feature(pro_result)
+        pro_result, head_result, tail_result = self.pooler(x, proposals, head_boxes, tail_boxes)
+        pro_result = self.feature(pro_result)
+        if head_boxes != None:
             head_result = self.feature(head_result)
             tail_result = self.feature(tail_result)
-            return pro_result, head_result, tail_result
+        else:
+            head_result = None
+            tail_result = None
+        return pro_result, head_result, tail_result
 
     def feature(self, x):
         x = x.view(x.size(0), -1)
