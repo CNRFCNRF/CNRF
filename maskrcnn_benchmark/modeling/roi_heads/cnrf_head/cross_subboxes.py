@@ -99,6 +99,7 @@ def generate_cross_subboxes(proposals, rel_pair_idxs):
     cross_tail_boxes = interaction_t_boxes + non_interaction_t_boxes
     cross_head_boxes = cross_head_boxes.split(num_rels, dim=0)
     cross_tail_boxes = cross_tail_boxes.split(num_rels, dim=0)
+    interaction_matrix = interaction_matrix.split(num_rels, dim=0)
 
     return cross_head_boxes, cross_tail_boxes, interaction_matrix
 
