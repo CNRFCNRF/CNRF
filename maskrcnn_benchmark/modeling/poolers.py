@@ -118,7 +118,7 @@ class Pooler(nn.Module):
         rois = torch.cat([ids, concat_boxes], dim=1)
         return rois
 
-    def forward(self, x, boxes, head_boxes, tail_boxes, union):
+    def forward(self, x, boxes, head_boxes, tail_boxes):
         """
         Arguments:
             x (list[Tensor]): feature maps for each level
@@ -126,19 +126,14 @@ class Pooler(nn.Module):
         Returns:
             result (Tensor)
         """
-        if union == 1:
-            pro_num = 0
-            pro_rois = self.convert_to_roi_format(boxes, head_boxes, tail_boxes, union)
-            pro_rois = self.feature(x, boxes, pro_rois, pro_num)
-            return pro_rois
-        else:
-            pro_rois, up_rois, down_rois = self.convert_to_roi_format(boxes, head_boxes, tail_boxes, union)
-            pro_num = 0
-            notpro_num = 1
-            pro_result = self.feature(x, boxes, pro_rois, pro_num)
-            up_result = self.feature(x, head_boxes, up_rois, notpro_num)
-            down_result = self.feature(x, tail_boxes, down_rois, notpro_num)
-            return pro_result, up_result, down_result
+
+        pro_rois, up_rois, down_rois = self.convert_to_roi_format(boxes, head_boxes, tail_boxes)
+        pro_num = 0
+        notpro_num = 1
+        pro_result = self.feature(x, boxes, pro_rois, pro_num)
+        up_result = self.feature(x, head_boxes, up_rois, notpro_num)
+        down_result = self.feature(x, tail_boxes, down_rois, notpro_num)
+        return pro_result, up_result, down_result
 
     def feature(self, x, boxes, rois, pro):
         num_levels = len(self.poolers)
