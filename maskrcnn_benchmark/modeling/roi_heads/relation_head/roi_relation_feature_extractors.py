@@ -94,8 +94,8 @@ class RelationFeatureExtractor(nn.Module):
         rect_features = self.rect_conv(rect_inputs)
 
         # union visual feature. size (total_num_rel, in_channels, POOLER_RESOLUTION, POOLER_RESOLUTION)
-        union_vis_features, _, _ = self.feature_extractor.pooler(x, union_proposals, head=None,
-                                                                 tail=None)  # merge two parts
+        union_vis_features, _, _ = self.feature_extractor.pooler(x, union_proposals, head_boxes=None,
+                                                                 tail_boxes=None)  # merge two parts
         if self.separate_spatial:
             region_features = self.feature_extractor.forward_without_pool(union_vis_features)
             spatial_features = self.spatial_fc(rect_features.view(rect_features.size(0), -1))
