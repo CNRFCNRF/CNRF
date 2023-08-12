@@ -587,7 +587,7 @@ class CausalAnalysisPredictor(nn.Module):
             nn.ReLU(inplace=True),
         )
 
-    def pair_feature_generate(self, roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
+    def pair_feature_generate(self, roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger,
                               cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes,
                               interaction_matrix,
                               ctx_average=False):
@@ -621,7 +621,6 @@ class CausalAnalysisPredictor(nn.Module):
 
             interaction_head_features.append(head)
             interaction_tail_features.append(tail)
-        union_splits = union_features.split(num_rels, dim=0)
 
         # post decode
         edge_rep = self.post_emb(edge_ctx)
@@ -640,11 +639,10 @@ class CausalAnalysisPredictor(nn.Module):
         pair_preds = []
         cross_preds = []
         global_preds = []
-        union_splits_feature = []
         for pair_idx, head_rep, tail_rep, obj_pred, obj_box, obj_prob, head_feature, tail_feature, interaction_id, \
-            full_id, union_split in zip(rel_pair_idxs, head_reps, tail_reps, obj_preds, obj_boxs, obj_prob_list,
+            full_id in zip(rel_pair_idxs, head_reps, tail_reps, obj_preds, obj_boxs, obj_prob_list,
                                         interaction_head_features, interaction_tail_features,
-                                        interaction_id_matrix, full_id_matrix, union_splits):
+                                        interaction_id_matrix, full_id_matrix):
             zeros = torch.zeros((full_id.shape[0] - interaction_id.shape[0]), 512).to(torch.device('cuda'))
             head = torch.cat((head_feature, zeros), dim=0)
             tail = torch.cat((tail_feature, zeros), dim=0)
@@ -658,12 +656,10 @@ class CausalAnalysisPredictor(nn.Module):
                                            tail_rep[pair_idx[:, 1]] * (tail + 1)), dim=-1))
             head_global_rep = head_rep[pair_idx[:, 0]][interaction_id]
             tail_global_rep = tail_rep[pair_idx[:, 1]][interaction_id]
-            union_split = union_split[interaction_id]
             global_pred = torch.cat((head_global_rep, tail_global_rep), dim=-1)
             cross_pred = torch.cat((head_feature, tail_feature), dim=-1)
             global_preds.append(global_pred)
             cross_preds.append(cross_pred)
-            union_splits_feature.append(union_split)
             pair_preds.append(torch.stack((obj_pred[pair_idx[:, 0]], obj_pred[pair_idx[:, 1]]), dim=1))
             pair_obj_probs.append(torch.stack((obj_prob[pair_idx[:, 0]], obj_prob[pair_idx[:, 1]]), dim=2))
             pair_bboxs_info.append(get_box_pair_info(obj_box[pair_idx[:, 0]], obj_box[pair_idx[:, 1]]))
@@ -674,14 +670,12 @@ class CausalAnalysisPredictor(nn.Module):
 
         cross_preds = cat(cross_preds, dim=0)
         global_preds = cat(global_preds, dim=0)
-        union_splits_feature = cat(union_splits_feature, dim=0)
         if self.use_vtranse:
             post_ctx_rep = ctx_rep
         else:
             post_ctx_rep = self.post_cat(ctx_rep)
             cross_preds = self.post_cat(cross_preds)
             global_preds = self.post_cat(global_preds)
-        global_preds = global_preds * union_splits_feature
         return post_ctx_rep, pair_pred, pair_bbox, pair_obj_probs, binary_preds, obj_dist_prob, edge_rep, obj_dist_list, cross_preds, global_preds
 
     def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features,
@@ -709,7 +703,7 @@ class CausalAnalysisPredictor(nn.Module):
         if (not self.training) and self.effect_analysis:
             with torch.no_grad():
                 avg_post_ctx_rep, _, _, avg_pair_obj_prob, _, _, _, _, cross_preds, global_preds = self.pair_feature_generate(
-                    roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
+                    roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger,
                     cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix,
                     ctx_average=True)
         global_rel_dists = self.ctx_compress(global_preds)
