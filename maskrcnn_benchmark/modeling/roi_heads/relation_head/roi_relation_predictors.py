@@ -696,7 +696,7 @@ class CausalAnalysisPredictor(nn.Module):
 
         post_ctx_rep, pair_pred, pair_bbox, pair_obj_probs, binary_preds, obj_dist_prob, edge_rep, obj_dist_list, cross_preds, global_preds = \
             self.pair_feature_generate(
-                roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, union_features,
+                roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger,
                 cross_head_features, cross_tail_features, cross_head_boxes, cross_tail_boxes, interaction_matrix,
                 ctx_average=False)
 
