@@ -60,6 +60,10 @@ class GenerateReassignmentLabels(nn.Module):
             _, restore_id = torch.sort(id, dim=1, descending=True)
             reassignment_labels = reassignment_labels.gather(dim=1, index=restore_id)
         else:
+            """
+                If the method is TDE, only the two relationships 
+                with the highest prediction scores are selected for relationship filtering.
+            """
             id_1 = id[:, 0].unsqueeze(dim=1)
             id_2 = id[:, 1].unsqueeze(dim=1)
             max_id = torch.argmax(global_rel_dists, dim=-1).unsqueeze(dim=1)
