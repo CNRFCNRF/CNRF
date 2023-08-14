@@ -87,7 +87,7 @@ class RelationLossComputation(object):
         zeros = torch.zeros(rel_labels1.shape[0], 51).cuda()
         onehot_rel_labels = zeros.scatter_(1, rel_labels1, 1)
 
-        if self.predictor == "CausalAnalysisPredictor":
+        if self.predictor != "CausalAnalysisPredictor":
             reassignment_labels = self.generate_reassignment_labels(global_rel_dists, rel_labels1)
             global_rel_dists = self.log_softmax(global_rel_dists)
             onehot_rel_labels = self.softmax(onehot_rel_labels)
