@@ -88,6 +88,19 @@ class RelationLossComputation(object):
         onehot_rel_labels = zeros.scatter_(1, rel_labels1, 1)
 
         if self.predictor == "CausalAnalysisPredictor":
+            reassignment_labels = self.generate_reassignment_labels(global_rel_dists, rel_labels1)
+            global_rel_dists = self.log_softmax(global_rel_dists)
+            onehot_rel_labels = self.softmax(onehot_rel_labels)
+            # reassignment_labels = self.softmax(reassignment_labels)
+            global_loss = self.kl_loss(global_rel_dists, onehot_rel_labels)
+
+            cross_rel_dists = self.log_softmax(cross_rel_dists)
+            cross_loss = self.kl_loss(cross_rel_dists, reassignment_labels)
+
+            relation_logits = self.log_softmax(relation_logits)
+            loss_relation = self.kl_loss(relation_logits, onehot_rel_labels)
+            loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
+        else:
             interaction_id_matrix = []
             for matrix in interaction_matrix:
                 _, ids = torch.sort(matrix[:, 0], descending=True, dim=0)
@@ -101,26 +114,13 @@ class RelationLossComputation(object):
                 interaction_gt_label.append(label)
 
             interaction_gt_label = torch.cat(interaction_gt_label, dim=0)
-            reassignment_labels = self.generate_reassignment_labels(global_rel_dists, interaction_gt_label.unsqueeze(dim=1))
+            reassignment_labels = self.generate_reassignment_labels(global_rel_dists,
+                                                                    interaction_gt_label.unsqueeze(dim=1))
 
             global_loss = self.criterion_loss(global_rel_dists, interaction_gt_label.long())
             cross_loss = self.criterion_loss(cross_rel_dists, reassignment_labels.long())
             loss_relation = self.criterion_loss(relation_logits, cat_rel_labels.long())
             loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
-        else:
-            reassignment_labels = self.generate_reassignment_labels(global_rel_dists, rel_labels1)
-            global_rel_dists = self.log_softmax(global_rel_dists)
-            onehot_rel_labels = self.softmax(onehot_rel_labels)
-            # reassignment_labels = self.softmax(reassignment_labels)
-            global_loss = self.kl_loss(global_rel_dists, onehot_rel_labels)
-
-            cross_rel_dists = self.log_softmax(cross_rel_dists)
-            cross_loss = self.kl_loss(cross_rel_dists, reassignment_labels)
-
-            relation_logits = self.log_softmax(relation_logits)
-            loss_relation = self.kl_loss(relation_logits, onehot_rel_labels)
-            loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
-
         # The following code is used to calcaulate sampled attribute loss
         if self.attri_on:
             refine_att_logits = cat(refine_att_logits, dim=0)
