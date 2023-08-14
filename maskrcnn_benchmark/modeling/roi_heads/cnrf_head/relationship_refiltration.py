@@ -14,6 +14,8 @@ class GenerateReassignmentLabels(nn.Module):
         global_rel_dists_50 = global_rel_dists[:, 1:]
         global_rel_dists_51 = torch.cat((hundred_min, global_rel_dists_50), dim=-1)
         scores, id = torch.sort(global_rel_dists_51, dim=-1, descending=True)
+        """Ranking of the number of fifty relationships in the VG dataset, 
+            with the larger the score, the smaller the number."""
         rel_rank_id = torch.tensor([0, 8, 44, 34, 28, 30, 17, 16, 10, 32, 31, 22, 40, 26, 23, 45, 20, 36,
                                     49, 18, 2, 9, 3, 15, 27, 35, 48, 39, 41, 6, 4, 1, 47, 19, 33, 37,
                                     43, 25, 21, 42, 12, 14, 38, 11, 46, 50, 24, 29, 5, 13, 7]).to(torch.device("cuda"))
